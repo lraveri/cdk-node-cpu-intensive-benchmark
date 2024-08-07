@@ -1,16 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 
 export class CdkNodeCpuIntensiveStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        const vpc = new ec2.Vpc(this, 'MyVpc', {
-            maxAzs: 2,
-            natGateways: 0
-        });
+        const vpc = ec2.Vpc.fromLookup(this, 'DefaultVPC', {isDefault: true});
 
         const securityGroup = new ec2.SecurityGroup(this, 'SecurityGroup', {
             vpc,
@@ -20,12 +16,6 @@ export class CdkNodeCpuIntensiveStack extends cdk.Stack {
 
         securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'allow ssh access from the world');
         securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'allow http access from the world');
-
-        const role = new iam.Role(this, 'InstanceRole', {
-            assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com')
-        });
-
-        role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'));
 
         const userData = ec2.UserData.forLinux();
         userData.addCommands(
@@ -41,14 +31,21 @@ export class CdkNodeCpuIntensiveStack extends cdk.Stack {
             'docker run -d -p 80:3000 --name myapp-container -e SERVER_PATH=src/01-single-thread/server.js myapp'
         );
 
-        const instance = new ec2.Instance(this, 'MyInstance', {
+        const ami = ec2.MachineImage.latestAmazonLinux({
+            generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
+            cpuType: ec2.AmazonLinuxCpuType.X86_64,
+        });
+
+        const instance = new ec2.Instance(this, 'Instance', {
             vpc,
-            instanceType: new ec2.InstanceType('m5.xlarge'),
-            machineImage: ec2.MachineImage.latestAmazonLinux(),
+            instanceType: ec2.InstanceType.of(
+                ec2.InstanceClass.T2,
+                ec2.InstanceSize.MICRO
+            ),
+            machineImage: ami,
             securityGroup: securityGroup,
-            role: role,
             userData: userData,
-            vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC},
+            vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
             associatePublicIpAddress: true
         });
 
