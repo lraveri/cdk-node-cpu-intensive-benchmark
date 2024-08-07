@@ -24,7 +24,6 @@ export class CdkNodeCpuIntensiveStack extends cdk.Stack {
             'service docker start',
             'usermod -a -G docker ec2-user',
             'yum install -y git',
-            'sleep 10',
             'git clone https://github.com/lraveri/node-cpu-intensive.git /home/ec2-user/myapp',
             'cd /home/ec2-user/myapp',
             'docker build -t myapp .',
